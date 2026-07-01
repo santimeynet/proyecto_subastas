@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro - Subastas UTN</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container auth-box">
+        <div class="card">
+            <h2>Registrarse</h2>
+            <div id="error" class="alert alert-error" style="display:none"></div>
+            <form id="regForm">
+                <label>Nombre</label>
+                <input type="text" id="nombre" required>
+                <label>Email</label>
+                <input type="email" id="email" required>
+                <label>Contrasena</label>
+                <input type="password" id="password" required minlength="6">
+                <label>
+                    <input type="checkbox" id="seller"> Quiero vender (rol SELLER)
+                </label>
+                <button type="submit">Registrarse</button>
+            </form>
+            <p style="margin-top:1rem"><a href="login.html">Ya tengo cuenta</a></p>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script>
+        document.getElementById('regForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const err = document.getElementById('error');
+            err.style.display = 'none';
+            const body = {
+                nombre: document.getElementById('nombre').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
+            if (document.getElementById('seller').checked) {
+                body.roles = ['SELLER'];
+            }
+            try {
+                const data = await api.register(body);
+                guardarSesion(data);
+                window.location.href = 'subastas.html';
+            } catch (ex) {
+                err.textContent = ex.message;
+                err.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

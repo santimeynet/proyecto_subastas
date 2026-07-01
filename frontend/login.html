@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Subastas UTN</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container auth-box">
+        <div class="card">
+            <h2>Iniciar sesion</h2>
+            <div id="error" class="alert alert-error" style="display:none"></div>
+            <form id="loginForm">
+                <label>Email</label>
+                <input type="email" id="email" required>
+                <label>Contrasena</label>
+                <input type="password" id="password" required>
+                <button type="submit">Entrar</button>
+            </form>
+            <p style="margin-top:1rem">Admin demo: admin@utn.edu.ar / Admin123!</p>
+            <p><a href="register.html">Crear cuenta</a></p>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const err = document.getElementById('error');
+            err.style.display = 'none';
+            try {
+                const data = await api.login({
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                });
+                guardarSesion(data);
+                window.location.href = 'subastas.html';
+            } catch (ex) {
+                err.textContent = ex.message;
+                err.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

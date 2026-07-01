@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Panel Administrador</h1>
+        <nav id="nav"></nav>
+    </header>
+    <div class="container">
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="success" class="alert alert-success" style="display:none"></div>
+        <div class="card">
+            <h2>Cancelar subasta</h2>
+            <form id="cancelarForm">
+                <input type="number" id="cancelarSubastaId" placeholder="ID de subasta" min="1" required>
+                <textarea id="cancelarMotivo" placeholder="Motivo de cancelacion" required></textarea>
+                <button type="submit" class="danger">Cancelar subasta</button>
+            </form>
+            <p style="margin-top:0.75rem">El administrador puede cancelar incluso si ya hubo pujas.</p>
+        </div>
+        <div class="card">
+            <h2>Usuarios</h2>
+            <div id="usuarios"></div>
+        </div>
+        <div class="card">
+            <h2>Disputas pendientes</h2>
+            <div id="disputas"></div>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script src="js/nav.js"></script>
+    <script>
+        if (!requiereAuth()) {}
+        if (!tieneRol('ADMIN')) {
+            window.location.href = 'index.html';
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('success');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        async function cargarUsuarios() {
+            hideError('error');
+            try {
+                const users = await api.usuarios();
+                document.getElementById('usuarios').innerHTML = `
+                    <table>
+                        <tr><th>ID</th><th>Nombre</th><th>Email</th><th>Roles</th><th>Bloqueado</th><th>Accion</th></tr>
+                        ${users.map(u => `<tr>
+                            <td>${u.id}</td><td>${u.nombre}</td><td>${u.email}</td>
+                            <td>${[...u.roles].join(', ')}</td>
+                            <td>${u.bloqueado ? 'Si' : 'No'}</td>
+                            <td><button onclick="toggleBloqueo(${u.id}, ${!u.bloqueado})">${u.bloqueado ? 'Desbloquear' : 'Bloquear'}</button></td>
+                        </tr>`).join('')}
+                    </table>`;
+            } catch (ex) {
+                showError('error', ex.message);
+                document.getElementById('usuarios').innerHTML = '';
+            }
+        }
+
+        async function cargarDisputas() {
+            try {
+                const disputas = await api.disputasPendientes();
+                document.getElementById('disputas').innerHTML = disputas.length ? disputas.map(d => `
+                    <div style="border:1px solid #eee;padding:1rem;margin-bottom:1rem;border-radius:6px">
+                        <p><strong>Subasta #${d.subastaId}</strong> - ${d.motivo}</p>
+                        <p>${d.descripcion}</p>
+                        <p>Iniciada por: ${d.iniciadorNombre}</p>
+                        <select id="estado-${d.id}">
+                            <option value="ADJUDICADA">ADJUDICADA</option>
+                            <option value="CANCELADA">CANCELADA</option>
+                        </select>
+                        <input type="text" id="res-${d.id}" placeholder="Resolucion" style="width:60%">
+                        <button onclick="resolver(${d.id})">Resolver</button>
+                    </div>
+                `).join('') : '<p>Sin disputas pendientes.</p>';
+            } catch (ex) {
+                showError('error', ex.message);
+                document.getElementById('disputas').innerHTML = '';
+            }
+        }
+
+        async function toggleBloqueo(id, bloqueado) {
+            hideError('error');
+            try {
+                await api.bloquearUsuario(id, bloqueado);
+                showSuccess(bloqueado ? 'Usuario bloqueado.' : 'Usuario desbloqueado.');
+                cargarUsuarios();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        }
+
+        async function resolver(id) {
+            hideError('error');
+            const resolucion = document.getElementById('res-' + id).value.trim();
+            if (!resolucion) {
+                showError('error', 'Debe ingresar una resolucion.');
+                return;
+            }
+            try {
+                await api.resolverDisputa(id, {
+                    estadoFinal: document.getElementById('estado-' + id).value,
+                    resolucion
+                });
+                showSuccess('Disputa resuelta correctamente.');
+                cargarDisputas();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        }
+
+        document.getElementById('cancelarForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                const subastaId = document.getElementById('cancelarSubastaId').value.trim();
+                const motivo = document.getElementById('cancelarMotivo').value.trim();
+                if (!subastaId || !motivo) {
+                    showError('error', 'Debe completar el ID de subasta y el motivo.');
+                    return;
+                }
+                await api.cancelarSubasta(subastaId, motivo);
+                showSuccess('Subasta cancelada correctamente.');
+                document.getElementById('cancelarForm').reset();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        });
+
+        cargarUsuarios();
+        cargarDisputas();
+    </script>
+</body>
+</html>

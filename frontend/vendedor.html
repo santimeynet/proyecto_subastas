@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Vendedor</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Panel Vendedor</h1>
+        <nav id="nav"></nav>
+    </header>
+    <div class="container">
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="success" class="alert alert-success" style="display:none"></div>
+        <div class="card">
+            <h2>Nuevo producto</h2>
+            <form id="productoForm">
+                <input type="text" id="titulo" placeholder="Titulo" required>
+                <textarea id="descripcion" placeholder="Descripcion"></textarea>
+                <button type="submit">Crear producto</button>
+            </form>
+        </div>
+        <div class="card">
+            <h2>Nueva subasta</h2>
+            <form id="subastaForm">
+                <label>Producto</label>
+                <select id="productoId" required></select>
+                <label>Categoria</label>
+                <select id="categoriaId" required></select>
+                <label>Precio base</label>
+                <input type="number" id="precioBase" step="0.01" required>
+                <label>Incremento minimo</label>
+                <input type="number" id="incremento" step="0.01" value="100" required>
+                <label>Inicio (UTC)</label>
+                <input type="datetime-local" id="inicio" required>
+                <label>Cierre (UTC)</label>
+                <input type="datetime-local" id="cierre" required>
+                <textarea id="descSubasta" placeholder="Descripcion subasta"></textarea>
+                <button type="submit">Crear subasta (borrador)</button>
+            </form>
+        </div>
+        <div class="card">
+            <h2>Mis productos</h2>
+            <div id="productos"></div>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script src="js/nav.js"></script>
+    <script>
+        if (!requiereAuth()) {}
+        if (!tieneRol('SELLER')) {
+            showError('error', 'Necesitas rol SELLER. Registrate marcando la opcion de vendedor.');
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('success');
+            el.textContent = message;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        function toUtcIso(datetimeLocalValue) {
+            if (!datetimeLocalValue) return null;
+            const local = datetimeLocalValue.length === 16
+                ? datetimeLocalValue + ':00'
+                : datetimeLocalValue;
+            return new Date(local).toISOString();
+        }
+
+        async function init() {
+            hideError('error');
+            try {
+                const cats = await api.categorias();
+                document.getElementById('categoriaId').innerHTML = cats.map(c =>
+                    `<option value="${c.id}">${c.nombre}</option>`).join('');
+
+                const prods = await api.productos();
+                document.getElementById('productoId').innerHTML = prods.map(p =>
+                    `<option value="${p.id}">${p.titulo}</option>`).join('') || '<option value="">Sin productos</option>';
+                document.getElementById('productos').innerHTML = prods.map(p =>
+                    `<p><strong>${p.titulo}</strong> - ${p.descripcion || ''}</p>`).join('') || '<p>Sin productos.</p>';
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        }
+
+        document.getElementById('productoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                await api.crearProducto({
+                    titulo: document.getElementById('titulo').value,
+                    descripcion: document.getElementById('descripcion').value
+                });
+                document.getElementById('productoForm').reset();
+                showSuccess('Producto creado correctamente.');
+                init();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        });
+
+        document.getElementById('subastaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                const subasta = await api.crearSubasta({
+                    productoId: parseInt(document.getElementById('productoId').value),
+                    categoriaId: parseInt(document.getElementById('categoriaId').value),
+                    precioBase: parseFloat(document.getElementById('precioBase').value),
+                    incrementoMinimo: parseFloat(document.getElementById('incremento').value),
+                    inicioUtc: toUtcIso(document.getElementById('inicio').value),
+                    cierreUtc: toUtcIso(document.getElementById('cierre').value),
+                    descripcion: document.getElementById('descSubasta').value
+                });
+                await api.publicarSubasta(subasta.id);
+                showSuccess('Subasta creada y publicada. ID: ' + subasta.id);
+                document.getElementById('subastaForm').reset();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        });
+
+        init();
+    </script>
+</body>
+</html>

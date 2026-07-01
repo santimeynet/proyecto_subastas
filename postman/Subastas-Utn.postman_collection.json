@@ -1,0 +1,339 @@
+{
+  "info": {
+    "name": "Subastas UTN - TPI UTN",
+    "description": "Coleccion Postman para el Sistema de Subastas Online.\n\n1. Ejecutar **Login Admin** o **Register + Login**.\n2. El token se guarda automaticamente en la variable `token`.\n3. Probar el flujo completo: producto → subasta → puja → disputa.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "token", "value": "" },
+    { "key": "subastaId", "value": "1" },
+    { "key": "productoId", "value": "1" },
+    { "key": "disputaId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register (comprador)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Comprador Demo\",\n  \"email\": \"comprador@demo.com\",\n  \"password\": \"Demo1234!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Register (vendedor)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Vendedor Demo\",\n  \"email\": \"vendedor@demo.com\",\n  \"password\": \"Demo1234!\",\n  \"roles\": [\"SELLER\"]\n}"
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.collectionVariables.set('token', data.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@utn.edu.ar\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/auth/me"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categorias",
+      "item": [
+        {
+          "name": "Listar categorias",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/categorias"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Productos",
+      "item": [
+        {
+          "name": "Crear producto",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('productoId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Notebook Dell\",\n  \"descripcion\": \"Usada en buen estado\",\n  \"imagenUrl\": \"https://example.com/img.jpg\"\n}"
+            },
+            "url": "{{baseUrl}}/productos"
+          }
+        },
+        {
+          "name": "Mis productos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/productos/mis-productos"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subastas",
+      "item": [
+        {
+          "name": "Crear subasta",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  pm.collectionVariables.set('subastaId', pm.response.json().id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productoId\": {{productoId}},\n  \"categoriaId\": 1,\n  \"precioBase\": 1000,\n  \"incrementoMinimo\": 100,\n  \"inicioUtc\": \"2026-06-23T10:00:00Z\",\n  \"cierreUtc\": \"2026-06-23T18:00:00Z\",\n  \"descripcion\": \"Subasta demo\"\n}"
+            },
+            "url": "{{baseUrl}}/subastas"
+          }
+        },
+        {
+          "name": "Publicar subasta",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/publicar"
+          }
+        },
+        {
+          "name": "Listar subastas",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/subastas"
+          }
+        },
+        {
+          "name": "Obtener subasta (incluye version)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/subastas/{{subastaId}}"
+          }
+        },
+        {
+          "name": "Historial de estados",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/historial"
+          }
+        },
+        {
+          "name": "Cancelar subasta",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Cancelacion de prueba\"\n}"
+            },
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/cancelar"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pujas",
+      "item": [
+        {
+          "name": "Registrar puja (con version)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"monto\": 1000,\n  \"version\": 0\n}"
+            },
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/pujas"
+          }
+        },
+        {
+          "name": "Listar pujas de subasta",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/pujas"
+          }
+        },
+        {
+          "name": "Mis pujas",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/mis-pujas"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Disputas",
+      "item": [
+        {
+          "name": "Abrir disputa",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"motivo\": \"Producto no recibido\",\n  \"descripcion\": \"El ganador no recibio el producto en el plazo acordado.\"\n}"
+            },
+            "url": "{{baseUrl}}/subastas/{{subastaId}}/disputas"
+          }
+        },
+        {
+          "name": "Listar disputas pendientes (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const list = pm.response.json();",
+                  "  if (list.length) pm.collectionVariables.set('disputaId', list[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/admin/disputas"
+          }
+        },
+        {
+          "name": "Resolver disputa (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"estadoFinal\": \"ADJUDICADA\",\n  \"resolucion\": \"Se confirma la venta tras verificacion.\"\n}"
+            },
+            "url": "{{baseUrl}}/admin/disputas/{{disputaId}}/resolver"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Listar usuarios",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/admin/usuarios"
+          }
+        },
+        {
+          "name": "Bloquear usuario",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bloqueado\": true\n}"
+            },
+            "url": "{{baseUrl}}/admin/usuarios/2/bloquear"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notificaciones",
+      "item": [
+        {
+          "name": "Listar notificaciones",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/notificaciones"
+          }
+        }
+      ]
+    }
+  ]
+}

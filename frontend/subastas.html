@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subastas - UTN</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Subastas Online</h1>
+        <nav id="nav"></nav>
+    </header>
+    <div class="container">
+        <div class="card">
+            <h2>Subastas disponibles</h2>
+            <label>Filtrar por estado:</label>
+            <select id="filtro" onchange="cargar()">
+                <option value="">Todas</option>
+                <option value="ACTIVA" selected>Activas</option>
+                <option value="PUBLICADA">Publicadas</option>
+                <option value="ADJUDICADA">Adjudicadas</option>
+            </select>
+        </div>
+        <div id="lista" class="grid"></div>
+    </div>
+    <script src="js/api.js"></script>
+    <script src="js/nav.js"></script>
+    <script>
+        async function cargar() {
+            const estado = document.getElementById('filtro').value;
+            const lista = document.getElementById('lista');
+            try {
+                const subastas = await api.subastas(estado || null);
+                if (!subastas.length) {
+                    lista.innerHTML = '<p>No hay subastas.</p>';
+                    return;
+                }
+                lista.innerHTML = subastas.map(s => `
+                    <div class="card">
+                        <span class="badge badge-${s.estado}">${s.estado}</span>
+                        <h3>${s.productoTitulo}</h3>
+                        <p>${s.categoriaNombre}</p>
+                        <p class="precio">$${s.montoActual}</p>
+                        <p>Cierre: ${new Date(s.cierreUtc).toLocaleString()}</p>
+                        <a href="subasta-detalle.html?id=${s.id}" class="btn">Ver detalle</a>
+                    </div>
+                `).join('');
+            } catch (ex) {
+                lista.innerHTML = `<p class="alert alert-error">${ex.message}</p>`;
+            }
+        }
+        cargar();
+    </script>
+</body>
+</html>

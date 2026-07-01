@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle Subasta</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Detalle de Subasta</h1>
+        <nav><a href="subastas.html">Volver</a></nav>
+    </header>
+    <div class="container">
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="detalle" class="card"></div>
+        <div id="pujaBox" class="card" style="display:none">
+            <h3>Realizar puja</h3>
+            <p>Minimo requerido: $<span id="minimo"></span></p>
+            <p>Version del precio: <span id="versionActual"></span></p>
+            <form id="pujaForm">
+                <input type="number" id="monto" step="0.01" required>
+                <button type="submit" class="success">Pujar</button>
+            </form>
+        </div>
+        <div id="cancelarBox" class="card" style="display:none">
+            <h3>Cancelar subasta</h3>
+            <p id="cancelarInfo"></p>
+            <form id="cancelarForm">
+                <textarea id="motivoCancelacion" placeholder="Motivo de cancelacion" required></textarea>
+                <button type="submit" class="danger">Cancelar subasta</button>
+            </form>
+        </div>
+        <div id="disputaBox" class="card" style="display:none">
+            <h3>Abrir disputa</h3>
+            <form id="disputaForm">
+                <input type="text" id="motivo" placeholder="Motivo" required>
+                <textarea id="descripcion" placeholder="Descripcion" required></textarea>
+                <button type="submit" class="danger">Abrir disputa</button>
+            </form>
+        </div>
+        <div class="card">
+            <h3>Pujas</h3>
+            <div id="pujas"></div>
+        </div>
+    </div>
+    <script src="js/api.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        let subastaVersion = null;
+        let pujasVisibles = [];
+
+        async function cargar() {
+            if (!requiereAuth()) return;
+            hideError('error');
+            try {
+                const currentUser = usuarioActual();
+                const s = await api.subasta(id);
+                subastaVersion = s.version;
+                document.getElementById('detalle').innerHTML = `
+                    <span class="badge badge-${s.estado}">${s.estado}</span>
+                    <h2>${s.productoTitulo}</h2>
+                    <p>${s.descripcion || ''}</p>
+                    <p class="precio">Monto actual: $${s.montoActual}</p>
+                    <p>Precio base: $${s.precioBase} | Incremento min: $${s.incrementoMinimo}</p>
+                    <p>Inicio: ${new Date(s.inicioUtc).toLocaleString()}</p>
+                    <p>Cierre: ${new Date(s.cierreUtc).toLocaleString()}</p>
+                    ${s.ganadorNombre ? `<p>Ganador: ${s.ganadorNombre}</p>` : ''}
+                `;
+                if (s.estado === 'ACTIVA') {
+                    document.getElementById('pujaBox').style.display = 'block';
+                    document.getElementById('minimo').textContent = s.montoMinimoSiguientePuja;
+                    document.getElementById('versionActual').textContent = s.version;
+                    document.getElementById('monto').min = s.montoMinimoSiguientePuja;
+                    document.getElementById('monto').value = s.montoMinimoSiguientePuja;
+                } else {
+                    document.getElementById('pujaBox').style.display = 'none';
+                }
+                if (s.estado === 'ADJUDICADA') {
+                    document.getElementById('disputaBox').style.display = 'block';
+                } else {
+                    document.getElementById('disputaBox').style.display = 'none';
+                }
+                pujasVisibles = await api.pujasSubasta(id);
+                document.getElementById('pujas').innerHTML = pujasVisibles.length
+                    ? `<table><tr><th>Monto</th><th>Oferente</th><th>Fecha</th></tr>
+                       ${pujasVisibles.map(p => `<tr><td>$${p.monto}</td><td>${p.oferente}</td><td>${new Date(p.creadoEn).toLocaleString()}</td></tr>`).join('')}
+                       </table>`
+                    : '<p>Sin pujas visibles.</p>';
+
+                const esAdmin = tieneRol('ADMIN');
+                const esVendedor = currentUser && currentUser.userId === s.vendedorId;
+                const puedeCancelar = esAdmin || (esVendedor && pujasVisibles.length === 0 && (s.estado === 'BORRADOR' || s.estado === 'PUBLICADA' || s.estado === 'ACTIVA'));
+
+                if (puedeCancelar) {
+                    document.getElementById('cancelarBox').style.display = 'block';
+                    document.getElementById('cancelarInfo').textContent = esAdmin
+                        ? 'Como administrador podés cancelar esta subasta aunque ya tenga pujas.'
+                        : 'Como vendedor, solo podés cancelar si todavía no hubo pujas.';
+                } else {
+                    document.getElementById('cancelarBox').style.display = 'none';
+                }
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        }
+
+        document.getElementById('pujaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                const resp = await api.pujar(
+                    id,
+                    parseFloat(document.getElementById('monto').value),
+                    subastaVersion
+                );
+                subastaVersion = resp.subastaVersion;
+                alert('Puja registrada!');
+                cargar(); // Si es exitoso, sí queremos recargar todo
+            } catch (ex) {
+                // Si falla, mostramos el error
+                showError('error', ex.message);
+                
+                // OPCIONAL: Si queremos actualizar el precio en pantalla para que 
+                // el usuario vea el nuevo precio sin borrar el cartel de error, 
+                // hacemos esto:
+                try {
+                    const s = await api.subasta(id);
+                    subastaVersion = s.version;
+                    document.getElementById('minimo').textContent = s.montoMinimoSiguientePuja;
+                    document.getElementById('versionActual').textContent = s.version;
+                    document.getElementById('monto').min = s.montoMinimoSiguientePuja;
+                    document.getElementById('monto').value = s.montoMinimoSiguientePuja;
+                    // También actualizamos el texto del monto actual
+                    document.querySelector('.precio').textContent = `Monto actual: $${s.montoActual}`;
+                } catch(errorSecundario) {
+                    console.error("Error al refrescar datos:", errorSecundario);
+                }
+            }
+        });
+
+        document.getElementById('cancelarForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                const motivo = document.getElementById('motivoCancelacion').value.trim();
+                if (!motivo) {
+                    showError('error', 'Debe ingresar un motivo de cancelacion.');
+                    return;
+                }
+                await api.cancelarSubasta(id, motivo);
+                alert('Subasta cancelada');
+                document.getElementById('motivoCancelacion').value = '';
+                cargar();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        });
+
+        document.getElementById('disputaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError('error');
+            try {
+                await api.abrirDisputa(id, {
+                    motivo: document.getElementById('motivo').value,
+                    descripcion: document.getElementById('descripcion').value
+                });
+                alert('Disputa abierta');
+                cargar();
+            } catch (ex) {
+                showError('error', ex.message);
+            }
+        });
+
+        cargar();
+    </script>
+</body>
+</html>
